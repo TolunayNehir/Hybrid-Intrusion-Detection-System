@@ -19,8 +19,6 @@ The project implements a multi-agent IDS pipeline inspired by an academic genera
 - [Dataset Format](#dataset-format)
 - [Training and Model Persistence](#training-and-model-persistence)
 - [Configuration](#configuration)
-- [Generated Files and GitHub Cleanup](#generated-files-and-github-cleanup)
-- [Security Notes](#security-notes)
 - [Troubleshooting](#troubleshooting)
 - [Roadmap](#roadmap)
 
@@ -601,9 +599,6 @@ On startup:
 3. If checkpoints are missing, it trains the required components.
 4. If `--retrain` is used, existing checkpoints are ignored and models are retrained.
 
-> **GitHub recommendation**  
-> Do not commit generated `.pkl` checkpoint files directly into the main repository. Use GitHub Releases, Git LFS, or provide instructions for users to train the checkpoints locally.
-
 ---
 
 ## Configuration
@@ -648,72 +643,6 @@ FUSION = {
     },
     "intrusion_threshold": 0.55,
 }
-```
-
----
-
-## Security Notes
-
-### 1. Do Not Commit Secrets
-
-Do not commit:
-
-- `.env` files,
-- API keys,
-- access tokens,
-- private logs,
-- local platform state,
-- training databases containing sensitive data.
-
-Only commit `.env.example`.
-
-### 2. Pickle Checkpoint Warning
-
-The project uses pickle-based model checkpoint loading.
-
-```text
-Never load pickle files from untrusted sources.
-```
-
-Pickle files can execute arbitrary code when loaded. For a production-grade project, consider replacing pickle checkpointing with safer formats such as:
-
-- PyTorch `state_dict`,
-- NumPy `.npz`,
-- `safetensors`,
-- JSON for metadata and non-binary configuration.
-
-### 3. API Protection
-
-The current Flask API is suitable for local experimentation. If deployed publicly, protect sensitive endpoints such as:
-
-```text
-/api/datalake/reset
-/api/training-history/reset
-/api/tune/start
-/api/tune/apply
-/api/train/<model_key>
-/api/arch/config
-```
-
-Recommended production improvements:
-
-- add authentication,
-- add CSRF protection for browser-based actions,
-- restrict CORS origins,
-- set upload size limits,
-- validate uploaded files strictly,
-- avoid exposing debug information.
-
-Example upload size limit:
-
-```python
-app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
-```
-
-Example restricted CORS configuration:
-
-```python
-CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5000"]}})
 ```
 
 ---
