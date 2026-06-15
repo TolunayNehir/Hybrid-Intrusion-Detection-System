@@ -322,28 +322,6 @@ AI_INTEGRATIONS_OPENAI_BASE_URL=your_openai_compatible_base_url_here
 PORT=5000
 ```
 
-For GitHub, do **not** commit `.env` files. Commit only an example file:
-
-```text
-.env.example
-```
-
-Suggested `.env.example`:
-
-```env
-AI_INTEGRATIONS_OPENAI_API_KEY=
-AI_INTEGRATIONS_OPENAI_BASE_URL=
-PORT=5000
-```
-
-Suggested `.gitignore` entries:
-
-```gitignore
-.env
-.env.*
-!.env.example
-```
-
 ---
 
 ## Running the Project
