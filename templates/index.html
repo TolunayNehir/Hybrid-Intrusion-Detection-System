@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hybrid IDS — Security Dashboard</title>
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
+  <link rel="stylesheet" href="/static/style.css?v={{ cache_bust }}" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- ══════════════ HEADER ══════════════ -->
+<header>
+  <button class="hamburger" id="nav-toggle" onclick="toggleSidebar()" aria-label="Menu">&#9776;</button>
+  <div class="header-brand">
+    <span class="brand-icon">⬡</span>
+    <div>
+      <div class="brand-title">Hybrid IDS</div>
+      <div class="brand-sub">Intrusion Detection System</div>
+    </div>
+  </div>
+  <div class="header-status">
+    <span id="sys-badge" class="badge badge-idle">Initializing…</span>
+    <span id="sys-msg" class="status-msg"></span>
+  </div>
+  <div class="header-actions">
+    <button id="btn-theme" class="btn-theme" onclick="toggleTheme()" title="Aydınlık / Karanlık mod">🌙</button>
+    <button id="btn-start"   class="btn btn-primary" onclick="startSystem(false)">Start</button>
+    <button id="btn-retrain" class="btn btn-warn"    onclick="startSystem(true)">Retrain</button>
+  </div>
+</header>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- ══════════════ INIT PROGRESS ══════════════ -->
+<div id="init-bar-wrap" class="init-bar-wrap hidden">
+  <div id="init-bar" class="init-bar" style="width:0%"></div>
+  <span id="init-label" class="init-label">Preparing…</span>
+</div>
+
+<!-- ══════════════ MAIN LAYOUT ══════════════ -->
+<div class="layout">
+
+  <!-- ── LEFT NAV ── -->
+  <nav class="sidebar">
+    <button class="nav-btn active" data-tab="tab-dashboard">Dashboard</button>
+    <button class="nav-btn"        data-tab="tab-alerts">Alerts</button>
+    <button class="nav-btn"        data-tab="tab-analyze">Event Analysis</button>
+    <button class="nav-btn"        data-tab="tab-process">Batch Process</button>
+    <button class="nav-btn"        data-tab="tab-datalake">Data Lake</button>
+    <button class="nav-btn"        data-tab="tab-checkpoints">Models</button>
+    <button class="nav-btn"        data-tab="tab-results">Results</button>
+  </nav>
+
+  <!-- ── CONTENT ── -->
+  <main class="content">
+
+    <!-- ────────── TAB: DASHBOARD ────────── -->
+    <section id="tab-dashboard" class="tab active">
+      <h2 class="section-title">Security Dashboard</h2>
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:#334155">📡</div>
+          <div>
+            <div class="kpi-val" id="kpi-events">—</div>
+            <div class="kpi-lbl">Total Events</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:#7f1d1d">🚨</div>
+          <div>
+            <div class="kpi-val" id="kpi-alerts">—</div>
+            <div class="kpi-lbl">Total Alerts</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:#1e3a5f">🎯</div>
+          <div>
+            <div class="kpi-val" id="kpi-rate">—</div>
+            <div class="kpi-lbl">Detection Rate</div>
+          </div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-icon" style="background:#3b1f5e">🔴</div>
+          <div>
+            <div class="kpi-val" id="kpi-critical">—</div>
+            <div class="kpi-lbl">Critical Alerts</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts row -->
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-title">Severity Distribution</div>
+          <canvas id="chart-severity"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Attack Types (Top 8)</div>
+          <canvas id="chart-types"></canvas>
+        </div>
+      </div>
+
+      <!-- Alert summary -->
+      <div class="card mt-lg">
+        <div class="card-header">Recent Alerts (Summary)</div>
+        <div class="table-scroll-wrap">
+        <table class="table" id="dash-alerts-table">
+          <thead>
+            <tr><th>Alert ID</th><th>Sev.</th><th>Type</th><th>Source IP</th><th>Confidence</th><th>Time</th></tr>
+          </thead>
+          <tbody id="dash-alerts-body">
+            <tr><td colspan="6" class="empty">No alerts yet — process an event</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ────────── TAB: ALERTS ────────── -->
+    <section id="tab-alerts" class="tab">
+      <h2 class="section-title">Alert Management</h2>
+
+      <div class="filter-row">
+        <select id="flt-severity" onchange="loadAlerts()">
+          <option value="">All Severities</option>
+          <option value="CRITICAL">CRITICAL</option>
+          <option value="HIGH">HIGH</option>
+          <option value="MEDIUM">MEDIUM</option>
+          <option value="LOW">LOW</option>
+        </select>
+        <select id="flt-reviewed" onchange="loadAlerts()">
+          <option value="">All Statuses</option>
+          <option value="false">Unreviewed</option>
+          <option value="true">Reviewed</option>
+        </select>
+        <button class="btn btn-secondary" onclick="loadAlerts()">Refresh</button>
+      </div>
+
+      <div class="alert-status-row">
+        <span class="ast active">Active: <strong id="ast-active">0</strong></span>
+        <span class="ast ack">Acknowledged: <strong id="ast-ack">0</strong></span>
+        <span class="ast res">Resolved: <strong id="ast-res">0</strong></span>
+      </div>
+
+      <div class="card">
+        <div class="table-scroll-wrap">
+        <table class="table" id="alerts-table">
+          <thead>
+            <tr>
+              <th>Alert ID</th><th>Sev.</th><th>Type</th>
+              <th>Source</th><th>Destination</th><th>Confidence</th>
+              <th>Status</th><th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="alerts-body">
+            <tr><td colspan="8" class="empty">No alerts found</td></tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ────────── TAB: ANALYZE ────────── -->
+    <section id="tab-analyze" class="tab">
+      <h2 class="section-title">Single Event Analysis</h2>
+      <p class="sub-desc">Enter a security event manually and analyze it through all 5 agents.</p>
+
+      <div class="analyze-grid">
+        <!-- Form -->
+        <div class="card">
+          <div class="card-header">Event Information</div>
+
+          <!-- Scenario selector -->
+          <div style="padding:12px 16px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <label style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap">
+              Quick Scenario:
+            </label>
+            <select id="scenario-select" onchange="fillScenario(this.value)"
+                    style="flex:1;min-width:220px;background:var(--bg2);color:var(--text1);
+                           border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px">
+              <option value="">— Select a scenario or enter manually —</option>
+              <optgroup label="⚠️ Attack Scenarios">
+                <option value="ssh_brute">🔑 SSH Brute-Force Attack</option>
+                <option value="syn_flood">💥 SYN Flood DDoS Attack</option>
+                <option value="sql_inj">🗃️ SQL Injection (Web Attack)</option>
+                <option value="port_scan">🔍 Nmap Port Scan (Reconnaissance)</option>
+                <option value="ransomware_c2">🔒 Ransomware C2 Connection</option>
+                <option value="dns_amp">📡 DNS Amplification DDoS</option>
+                <option value="rce_exploit">⚡ RCE Exploit (CVE-2023-44487)</option>
+              </optgroup>
+              <optgroup label="✅ Normal Scenarios">
+                <option value="normal_web">🌐 Normal HTTPS Web Traffic</option>
+                <option value="normal_ssh">🖥️ Normal SSH Admin Session</option>
+                <option value="normal_dns">📋 Normal DNS Query</option>
+                <option value="normal_db">🗄️ Normal Database Query</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div class="form-grid">
+            <label>Source IP
+              <input id="a-src-ip" type="text" value="203.0.113.42" placeholder="x.x.x.x" />
+            </label>
+            <label>Destination IP
+              <input id="a-dst-ip" type="text" value="192.168.1.10" placeholder="x.x.x.x" />
+            </label>
+            <label>Source Port
+              <input id="a-src-port" type="number" value="45231" min="1" max="65535" />
+            </label>
+            <label>Destination Port
+              <input id="a-dst-port" type="number" value="22" min="1" max="65535" />
+            </label>
+            <label>Protocol
+              <select id="a-protocol">
+                <option>TCP</option><option>UDP</option><option>ICMP</option>
+                <option>HTTP</option><option>HTTPS</option><option>SSH</option><option>DNS</option>
+              </select>
+            </label>
+            <label>Source Type
+              <select id="a-source-type">
+                <option>IPS</option><option>SIEM</option><option>Firewall</option>
+                <option>SOAR</option><option>IDS</option>
+              </select>
+            </label>
+            <label>Severity
+              <select id="a-severity">
+                <option>LOW</option><option>MEDIUM</option><option selected>HIGH</option><option>CRITICAL</option>
+              </select>
+            </label>
+            <label>Expected Attack Type
+              <input id="a-attack-type" type="text" value="DoS" placeholder="Optional" />
+            </label>
+          </div>
+          <label class="full-label">Payload
+            <textarea id="a-payload" rows="3" placeholder="Packet data / log content…">exploit attempt detected, nmap scan</textarea>
+          </label>
+          <button class="btn btn-primary mt" onclick="analyzeEvent()" id="btn-analyze">
+            Analyze
+          </button>
+        </div>
+
+        <!-- Results -->
+        <div class="card" id="analyze-result-card" style="display:none">
+          <div class="card-header">Analysis Results</div>
+          <div id="analyze-result"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ────────── TAB: PROCESS (Toplu Tahminleme) ────────── -->
+    <section id="tab-process" class="tab">
+      <h2 class="section-title">Batch Prediction</h2>
+      <p class="sub-desc">Upload a CSV file — each row is analyzed through all 5 agents and results are listed.</p>
+
+      <!-- Upload zone -->
+      <div class="upload-zone" id="batch-drop-zone"
+           ondragover="event.preventDefault()" ondrop="batchDrop(event)">
+        <div class="upload-icon">📂</div>
+        <div class="upload-label">Drag CSV file here</div>
+        <div class="upload-hint">or</div>
+        <label class="btn btn-secondary" style="cursor:pointer;margin-top:8px">
+          Choose File
+          <input type="file" accept=".csv,text/csv" id="batch-file-input"
+                 style="display:none" onchange="batchFileSelected(this)"/>
+        </label>
+        <div class="upload-hint" style="margin-top:8px">
+          Supported columns: source_ip, destination_ip, source_port, destination_port, protocol, payload, attack_type
+        </div>
+        <div id="batch-not-ready-hint" style="display:none;margin-top:12px;color:#f59e0b;font-weight:600;font-size:13px">
+          ⏳ System initializing… please wait
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div id="batch-progress-wrap" class="batch-progress-wrap" style="display:none">
+        <div class="batch-progress-header">
+          <span id="batch-prog-label">Processing…</span>
+          <span id="batch-prog-count" style="color:var(--text2);font-size:12px"></span>
+        </div>
+        <div class="batch-progress-bar-bg">
+          <div id="batch-prog-bar" class="batch-progress-bar" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Summary row -->
+      <div id="batch-summary" class="batch-summary" style="display:none">
+        <div class="bs-box"><div id="bs-total" class="bs-val">0</div><div class="bs-lbl">Total Events</div></div>
+        <div class="bs-box intrusion"><div id="bs-intrusions" class="bs-val">0</div><div class="bs-lbl">Attack</div></div>
+        <div class="bs-box normal"><div id="bs-normals" class="bs-val">0</div><div class="bs-lbl">Normal</div></div>
+        <div class="bs-box"><div id="bs-rate" class="bs-val">0%</div><div class="bs-lbl">Detection Rate</div></div>
+      </div>
+
+      <!-- Results table -->
+      <div class="card mt-lg" id="batch-result-card" style="display:none">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <span>Prediction Results</span>
+          <button class="btn btn-secondary" style="font-size:12px" onclick="exportBatchCSV()">Download CSV</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="table" id="batch-result-table">
+            <thead>
+              <tr>
+                <th>#</th><th>Decision</th><th>Fusion Score</th>
+                <th>CNN</th><th>RNN</th><th>Cosine</th><th>LLM</th><th>Quantum</th>
+                <th>Alert</th>
+              </tr>
+            </thead>
+            <tbody id="batch-result-body">
+              <tr><td colspan="9" class="empty">No results yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ────────── TAB: DATA LAKE ────────── -->
+    <section id="tab-datalake" class="tab">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+        <div>
+          <h2 class="section-title" style="margin-bottom:4px">Reference Embedding Data Lake</h2>
+          <p class="sub-desc" style="margin:0">Reference embedding vectors and label distribution used for model training.</p>
+        </div>
+        <button class="btn btn-primary" onclick="exportDataLake()" id="dl-export-btn"
+                style="white-space:nowrap;align-self:center;padding:8px 18px;font-size:13px">
+          ⬇ Download CSV
+        </button>
+      </div>
+
+      <!-- ── Upload Zone ── -->
+      <div class="card mb-lg">
+        <div class="card-header">Add Records from File</div>
+        <p class="sub-desc" style="padding:0 16px 6px">
+          Upload a CSV, TXT, or JSON file — each row is converted to an embedding vector and added to the Data Lake.<br>
+          <span style="color:var(--text2)">
+            <strong>CSV:</strong> <code>label</code> column is <strong>required</strong> (Normal, DoS, Exploit, etc.)
+            &nbsp;|&nbsp; Optional: <code>payload</code>, <code>source_ip</code>, <code>protocol</code><br>
+            <strong>Supported label column names:</strong> <code>label</code>, <code>attack_type</code>, <code>class</code>, <code>category</code>, <code>type</code><br>
+            <strong>JSON:</strong> <code>[{"label":"DoS",…}]</code> &nbsp;|&nbsp;
+            <strong>TXT:</strong> One label per line &nbsp;|&nbsp; Max 50,000 rows
+          </span>
+        </p>
+        <div style="padding:0 16px 12px">
+          <a href="/api/datalake/sample-csv" download="sample_data.csv"
+             class="btn btn-secondary"
+             style="font-size:11px;padding:4px 12px;text-decoration:none">
+            📥 Download Sample CSV
+          </a>
+          <span style="font-size:11px;color:var(--text2);margin-left:8px">
+            Download the sample file to see the correct format
+          </span>
+        </div>
+
+        <div class="upload-zone dl-upload-zone" id="dl-drop-zone"
+             ondragover="event.preventDefault()" ondrop="dlDrop(event)">
+          <div class="upload-icon">🗄️</div>
+          <div class="upload-label">Drag CSV, TXT, or JSON file here</div>
+          <div class="upload-hint">or</div>
+          <label class="btn btn-primary" style="cursor:pointer;margin-top:8px">
+            Choose File
+            <input type="file" accept=".csv,.txt,.json,text/csv,text/plain,application/json" id="dl-file-input"
+                   style="display:none" onchange="dlFileSelected(this)"/>
+          </label>
+        </div>
+
+        <div id="dl-upload-result" style="display:none;padding:12px 16px 4px"></div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="dl-kpi-row">
+        <div class="dl-kpi-card">
+          <div class="dl-kpi-val" id="dl-total">—</div>
+          <div class="dl-kpi-lbl">Total Records</div>
+        </div>
+        <div class="dl-kpi-card dl-card-attack">
+          <div class="dl-kpi-val" id="dl-attacks">—</div>
+          <div class="dl-kpi-lbl">Attack Records</div>
+        </div>
+        <div class="dl-kpi-card dl-card-normal">
+          <div class="dl-kpi-val" id="dl-normals">—</div>
+          <div class="dl-kpi-lbl">Normal Records</div>
+        </div>
+        <div class="dl-kpi-card dl-card-types">
+          <div class="dl-kpi-val" id="dl-types">—</div>
+          <div class="dl-kpi-lbl">Attack Types</div>
+        </div>
+      </div>
+
+      <!-- Chart + type breakdown -->
+      <div class="dl-charts-row">
+        <div class="chart-card" style="flex:1">
+          <div class="chart-title">Label Distribution</div>
+          <canvas id="dl-chart-dist" height="180"></canvas>
+        </div>
+        <div class="card dl-type-list" style="flex:1">
+          <div class="card-header">Attack Types</div>
+          <div id="dl-type-rows" style="padding:12px 16px"></div>
+        </div>
+      </div>
+
+      <!-- Entry table -->
+      <div class="card mt-lg">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <span>Data Records</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="dl-search" type="text" placeholder="Search label or ID…"
+                   oninput="filterDLTable()"
+                   style="background:var(--bg2);color:var(--text1);border:1px solid var(--border);
+                          border-radius:6px;padding:5px 10px;font-size:12px;width:180px"/>
+            <button class="btn btn-secondary" style="font-size:12px" onclick="loadDataLake()">Refresh</button>
+            <button class="btn btn-red" id="dl-reset-btn" style="font-size:12px" onclick="resetDataLake()">🗑 Reset</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="table" id="dl-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Event ID</th>
+                <th>Label</th>
+                <th>Class</th>
+                <th>Vector Norm</th>
+              </tr>
+            </thead>
+            <tbody id="dl-table-body">
+              <tr><td colspan="5" class="empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ────────── TAB: CHECKPOINTS ────────── -->
+    <section id="tab-checkpoints" class="tab">
+      <h2 class="section-title">Model Status</h2>
+
+      <!-- ── Auto Tuning ── -->
+      <div class="card mb-lg" id="tune-card">
+        <div class="card-header">
+          <span style="color:#f59e0b;font-size:18px;margin-right:8px">⚡</span>
+          Auto-Tuning Mode
+        </div>
+        <div style="padding:0 16px 20px">
+          <p class="sub-desc" style="margin-bottom:14px">
+            Enter comma-separated parameter values to test for each model.
+            All combinations (<strong>Cartesian product</strong>) are tried automatically.
+          </p>
+
+          <!-- Epoch settings -->
+          <div class="tune-epoch-row">
+            <div class="tune-epoch-field">
+              <label class="tune-epoch-label">Fast Search Epochs <small>(per trial)</small></label>
+              <input type="number" id="tune-fast-epochs" class="tune-epoch-input" value="20" min="1" max="300" oninput="updateTuneCount()">
+            </div>
+            <div class="tune-epoch-field" id="tune-full-epochs-field">
+              <label class="tune-epoch-label">Full Training Epochs <small>(winning model)</small></label>
+              <input type="number" id="tune-full-epochs" class="tune-epoch-input" value="50" min="1" max="500">
+            </div>
+          </div>
+
+          <!-- Skip Phase 3 toggle -->
+          <div class="tune-skip-row" id="tune-skip-row">
+            <label class="tune-skip-label">
+              <input type="checkbox" id="tune-skip-full-retrain" onchange="toggleSkipFullRetrain(this)">
+              <span class="tune-skip-text">
+                <strong>Skip Phase 3</strong>
+                <small>— Skips the full data retrain; best parameters are applied and the pipeline proceeds directly to word2vec alignment. Faster, but no full training on the data lake.</small>
+              </span>
+            </label>
+          </div>
+
+          <!-- CNN parameter ranges -->
+          <div class="tune-range-section">
+            <div class="tune-range-header">
+              <span class="tune-model-badge tune-model-cnn">CNN</span>
+              Parameter Ranges
+            </div>
+            <div class="tune-range-grid">
+              <div class="tune-range-row">
+                <label>Conv. Layers</label>
+                <input id="tr-cnn-n_conv_layers" type="text" class="tune-range-input" placeholder="1,2,3" value="1,2,3" oninput="updateTuneCount()">
+                <small>integer</small>
+              </div>
+              <div class="tune-range-row">
+                <label>Conv1 Filters</label>
+                <input id="tr-cnn-conv1_out" type="text" class="tune-range-input" placeholder="8,16,32" value="8,16,32" oninput="updateTuneCount()">
+                <small>integer</small>
+              </div>
+              <div class="tune-range-row">
+                <label>Conv2 Filters</label>
+                <input id="tr-cnn-conv2_out" type="text" class="tune-range-input" placeholder="16,32,64" value="16,32,64" oninput="updateTuneCount()">
+                <small>integer</small>
+              </div>
+              <div class="tune-range-row">
+                <label>FC Hidden Size</label>
+                <input id="tr-cnn-fc_hidden" type="text" class="tune-range-input" placeholder="32,64,128" value="32,64,128" oninput="updateTuneCount()">
+                <small>integer</small>
+              </div>
+              <div class="tune-range-row">
+                <label>Dropout</label>
+                <input id="tr-cnn-dropout" type="text" class="tune-range-input" placeholder="0.0,0.2" value="0.0,0.2" oninput="updateTuneCount()">
+                <small>decimal</small>
+              </div>
+              <div class="tune-range-row">
+                <label>Kernel Size</label>
+                <input id="tr-cnn-kernel_size" type="text" class="tune-range-input" placeholder="3" value="3" oninput="updateTuneCount()">
+                <small>integer</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- RNN parameter ranges -->
+          <div class="tune-range-section">
+            <div class="tune-range-header">
+              <span class="tune-model-badge tune-model-rnn">RNN</span>
+              Parameter Ranges
+            </div>
+            <div class="tune-range-grid">
+              <div class="tune-range-row">
+                <label>Hidden Size</label>
+                <input id="tr-rnn-hidden_size" type="text" class="tune-range-input" placeholder="64,128,256" value="64,128,256" oninput="updateTuneCount()">
+                <small>integer</small>
+              </div>
+              <div class="tune-range-row">
+                <label>Num Layers</label>
+                <input id="tr-rnn-num_layers" type="text" class="tune-range-input" placeholder="1,2,3" value="1,2,3" oninput="updateTuneCount()">
+                <small>integer</small>
+              </div>
+              <div class="tune-range-row">
+                <label>Dropout</label>
+                <input id="tr-rnn-dropout" type="text" class="tune-range-input" placeholder="0.0,0.2,0.3" value="0.0,0.2,0.3" oninput="updateTuneCount()">
+                <small>decimal</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quantum parameter ranges -->
+          <div class="tune-range-section">
+            <div class="tune-range-header">
+              <span class="tune-model-badge tune-model-quantum">Quantum</span>
+              Parameter Ranges
+            </div>
+            <div class="tune-range-grid">
+              <div class="tune-range-row">
+                <label>Num Qubits</label>
+                <input id="tr-q-n_qubits" type="text" class="tune-range-input" placeholder="4,6,8" value="4,6,8" oninput="updateTuneCount()">
+                <small>integer</small>
+              </div>
+              <div class="tune-range-row">
+                <label>Hidden Layers</label>
+                <input id="tr-q-n_hidden_layers" type="text" class="tune-range-input" placeholder="2,3,4" value="2,3,4" oninput="updateTuneCount()">
+                <small>integer</small>
+              </div>
+              <div class="tune-range-row">
+                <label>Max Iterations</label>
+                <input id="tr-q-max_iterations" type="text" class="tune-range-input" placeholder="80,100" value="80,100" oninput="updateTuneCount()">
+                <small>integer</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Start row -->
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:18px">
+            <button class="btn btn-tune" id="btn-tune-start" onclick="startAutoTune()">
+              ⚡ Start Tuning
+            </button>
+            <button class="btn btn-tune-stop" id="btn-tune-stop" onclick="stopAutoTune()" disabled>
+              ⏹ Stop Tuning
+            </button>
+            <span id="tune-trial-count" class="tune-trial-count"></span>
+            <span id="tune-phase-badge" style="display:none"></span>
+            <span id="tune-counter" class="tune-counter"></span>
+          </div>
+
+          <!-- Progress bar -->
+          <div id="tune-progress-wrap" style="display:none;margin-top:14px">
+            <div class="model-train-bar-bg" style="height:8px">
+              <div class="model-train-bar" id="tune-progress-bar" style="height:100%"></div>
+            </div>
+            <div id="tune-progress-msg" class="tune-progress-msg"></div>
+          </div>
+
+          <!-- Trials table -->
+          <div id="tune-results-wrap" style="display:none;margin-top:18px">
+            <div class="tune-section-label">TRIAL RESULTS — Select any configuration to load it</div>
+            <div class="tune-table-wrap">
+              <table class="tune-table">
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Configuration</th>
+                    <th>Val Acc.</th>
+                    <th>Train Acc.</th>
+                    <th>Gap</th>
+                    <th>Params</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="tune-trials-body"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Trial load status -->
+          <div id="tune-load-wrap" style="display:none;margin-top:14px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:rgba(255,255,255,.03)">
+            <div class="tune-section-label" style="margin-bottom:8px">LOADING MODEL</div>
+            <div class="model-train-bar-bg" style="height:6px;margin-bottom:8px">
+              <div id="tune-load-bar" class="model-train-bar" style="height:100%;width:0%"></div>
+            </div>
+            <div id="tune-load-msg" style="font-size:12px;color:var(--text2)"></div>
+          </div>
+
+          <!-- Best summary + apply -->
+          <div id="tune-best-wrap" style="display:none;margin-top:18px">
+            <div class="tune-section-label">BEST RESULTS</div>
+            <div id="tune-best-grid" class="tune-best-grid"></div>
+            <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+              <button class="btn btn-primary" onclick="applyBestTuneParams()">
+                ✓ Apply Best Parameters &amp; Save
+              </button>
+              <span id="tune-apply-msg" style="font-size:12px"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Architecture Settings ── -->
+      <div class="card mb-lg" id="arch-card">
+        <div class="card-header">Architecture Settings</div>
+        <div style="padding:0 16px 16px">
+          <p class="sub-desc" style="margin-bottom:16px">
+            Select or customize the neural network architecture for each model.
+            <br><span style="color:var(--text2)">Selecting a preset auto-fills the fields. Use <strong>Save + Retrain</strong> to apply changes.</span>
+          </p>
+
+          <!-- ─── CNN ─── -->
+          <div class="arch-section">
+            <div class="arch-section-title">CNN &nbsp;<span style="font-weight:400;color:var(--text2)">(Convolutional Neural Network)</span></div>
+            <div class="arch-presets" id="arch-presets-cnn"></div>
+            <div id="arch-desc-cnn" class="arch-desc"></div>
+            <div class="arch-form-grid">
+              <div class="arch-field">
+                <label>Conv. Layers</label>
+                <input type="number" id="af-cnn-n_conv_layers" min="1" max="4" step="1" value="2"
+                       onchange="clearArchPreset('cnn')">
+              </div>
+              <div class="arch-field">
+                <label>Conv1 Filters</label>
+                <input type="number" id="af-cnn-conv1_out" min="4" max="128" step="4" value="16"
+                       onchange="clearArchPreset('cnn')">
+              </div>
+              <div class="arch-field">
+                <label>Conv2 Filters</label>
+                <input type="number" id="af-cnn-conv2_out" min="4" max="256" step="4" value="32"
+                       onchange="clearArchPreset('cnn')">
+              </div>
+              <div class="arch-field">
+                <label>FC Hidden Size</label>
+                <input type="number" id="af-cnn-fc_hidden" min="16" max="512" step="16" value="64"
+                       onchange="clearArchPreset('cnn')">
+              </div>
+              <div class="arch-field">
+                <label>Kernel Size</label>
+                <input type="number" id="af-cnn-kernel_size" min="1" max="9" step="2" value="3"
+                       onchange="clearArchPreset('cnn')">
+              </div>
+              <div class="arch-field">
+                <label>Dropout</label>
+                <input type="number" id="af-cnn-dropout" min="0" max="0.8" step="0.05" value="0.0"
+                       onchange="clearArchPreset('cnn')">
+              </div>
+              <div class="arch-field">
+                <label>Epochs</label>
+                <input type="number" id="af-cnn-epochs" min="5" max="200" step="5" value="40"
+                       onchange="clearArchPreset('cnn')">
+              </div>
+              <div class="arch-field">
+                <label>Learning Rate</label>
+                <input type="number" id="af-cnn-learning_rate" min="0.00001" max="0.1" step="0.0001" value="0.001"
+                       onchange="clearArchPreset('cnn')">
+              </div>
+            </div>
+            <!-- CNN individual train row -->
+            <div class="model-train-row">
+              <button class="btn btn-train" id="btn-train-cnn" onclick="trainSingleModel('cnn')">
+                ▶ Train CNN Only
+              </button>
+              <div id="model-train-progress-cnn" class="model-train-progress" style="display:none">
+                <div class="model-train-bar-bg">
+                  <div class="model-train-bar" id="model-train-bar-cnn"></div>
+                </div>
+                <span id="model-train-msg-cnn" class="model-train-msg"></span>
+              </div>
+            </div>
+            <div id="model-val-metrics-cnn" class="model-val-metrics" style="display:none">
+              <div class="val-metric-item">
+                <div class="val-metric-label">Val Accuracy</div>
+                <div class="val-metric-value" id="val-acc-cnn">—</div>
+              </div>
+              <div class="val-metric-item">
+                <div class="val-metric-label">Val Loss</div>
+                <div class="val-metric-value val-metric-loss" id="val-loss-cnn">—</div>
+              </div>
+              <div class="val-metric-item">
+                <div class="val-metric-label">Train / Val</div>
+                <div class="val-metric-value val-metric-split" id="val-split-cnn">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="arch-divider"></div>
+
+          <!-- ─── RNN ─── -->
+          <div class="arch-section">
+            <div class="arch-section-title">RNN &nbsp;<span style="font-weight:400;color:var(--text2)">(Recurrent Neural Network)</span></div>
+            <div class="arch-presets" id="arch-presets-rnn"></div>
+            <div id="arch-desc-rnn" class="arch-desc"></div>
+            <div class="arch-form-grid">
+              <div class="arch-field">
+                <label>Hidden Size</label>
+                <input type="number" id="af-rnn-hidden_size" min="16" max="1024" step="16" value="128"
+                       onchange="clearArchPreset('rnn')">
+              </div>
+              <div class="arch-field">
+                <label>Num Layers</label>
+                <input type="number" id="af-rnn-num_layers" min="1" max="6" step="1" value="2"
+                       onchange="clearArchPreset('rnn')">
+              </div>
+              <div class="arch-field">
+                <label>Dropout</label>
+                <input type="number" id="af-rnn-dropout" min="0" max="0.8" step="0.05" value="0.25"
+                       onchange="clearArchPreset('rnn')">
+              </div>
+              <div class="arch-field">
+                <label>Epochs</label>
+                <input type="number" id="af-rnn-epochs" min="5" max="200" step="5" value="40"
+                       onchange="clearArchPreset('rnn')">
+              </div>
+              <div class="arch-field">
+                <label>Learning Rate</label>
+                <input type="number" id="af-rnn-learning_rate" min="0.00001" max="0.1" step="0.0001" value="0.001"
+                       onchange="clearArchPreset('rnn')">
+              </div>
+            </div>
+            <!-- RNN individual train row -->
+            <div class="model-train-row">
+              <button class="btn btn-train" id="btn-train-rnn" onclick="trainSingleModel('rnn')">
+                ▶ Train RNN Only
+              </button>
+              <div id="model-train-progress-rnn" class="model-train-progress" style="display:none">
+                <div class="model-train-bar-bg">
+                  <div class="model-train-bar" id="model-train-bar-rnn"></div>
+                </div>
+                <span id="model-train-msg-rnn" class="model-train-msg"></span>
+              </div>
+            </div>
+            <div id="model-val-metrics-rnn" class="model-val-metrics" style="display:none">
+              <div class="val-metric-item">
+                <div class="val-metric-label">Val Accuracy</div>
+                <div class="val-metric-value" id="val-acc-rnn">—</div>
+              </div>
+              <div class="val-metric-item">
+                <div class="val-metric-label">Val Loss</div>
+                <div class="val-metric-value val-metric-loss" id="val-loss-rnn">—</div>
+              </div>
+              <div class="val-metric-item">
+                <div class="val-metric-label">Train / Val</div>
+                <div class="val-metric-value val-metric-split" id="val-split-rnn">—</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="arch-divider"></div>
+
+          <!-- ─── Quantum ─── -->
+          <div class="arch-section">
+            <div class="arch-section-title">Quantum AI &nbsp;<span style="font-weight:400;color:var(--text2)">(QMLP — Quantum MLP)</span></div>
+            <div class="arch-presets" id="arch-presets-quantum"></div>
+            <div id="arch-desc-quantum" class="arch-desc"></div>
+            <div class="arch-form-grid">
+              <div class="arch-field">
+                <label>Num Qubits</label>
+                <input type="number" id="af-quantum-n_qubits" min="2" max="12" step="1" value="8"
+                       onchange="clearArchPreset('quantum');updateQParams()">
+              </div>
+              <div class="arch-field">
+                <label>Hidden Layers</label>
+                <input type="number" id="af-quantum-n_hidden_layers" min="1" max="8" step="1" value="4"
+                       onchange="clearArchPreset('quantum');updateQParams()">
+              </div>
+              <div class="arch-field">
+                <label>Max Iterations</label>
+                <input type="number" id="af-quantum-max_iterations" min="50" max="1000" step="50" value="300"
+                       onchange="clearArchPreset('quantum')">
+              </div>
+              <div class="arch-field">
+                <label>Learning Rate</label>
+                <input type="number" id="af-quantum-learning_rate" min="0.001" max="0.1" step="0.001" value="0.01"
+                       onchange="clearArchPreset('quantum')">
+              </div>
+              <div class="arch-field">
+                <label>SPSA Perturbation</label>
+                <input type="number" id="af-quantum-perturbation" min="0.05" max="0.5" step="0.05" value="0.25"
+                       onchange="clearArchPreset('quantum')">
+              </div>
+            </div>
+            <!-- Live param count -->
+            <div id="q-param-info" style="margin-top:10px;font-size:12px;color:var(--text2);
+                 background:var(--bg2);border-radius:6px;padding:6px 10px">
+              Total parameters: <strong id="q-param-count" style="color:var(--accent)">73</strong>
+              &nbsp;·&nbsp; Quantum: <span id="q-quantum-count">64</span>
+              &nbsp;·&nbsp; Classical: <span id="q-classical-count">9</span>
+            </div>
+          </div>
+
+            <!-- Quantum individual train row -->
+            <div class="model-train-row">
+              <button class="btn btn-train" id="btn-train-quantum" onclick="trainSingleModel('quantum')">
+                ▶ Train Quantum Only
+              </button>
+              <div id="model-train-progress-quantum" class="model-train-progress" style="display:none">
+                <div class="model-train-bar-bg">
+                  <div class="model-train-bar" id="model-train-bar-quantum"></div>
+                </div>
+                <span id="model-train-msg-quantum" class="model-train-msg"></span>
+              </div>
+            </div>
+            <div id="model-val-metrics-quantum" class="model-val-metrics" style="display:none">
+              <div class="val-metric-item">
+                <div class="val-metric-label">Val Accuracy</div>
+                <div class="val-metric-value" id="val-acc-quantum">—</div>
+              </div>
+              <div class="val-metric-item">
+                <div class="val-metric-label">Val Loss</div>
+                <div class="val-metric-value val-metric-loss" id="val-loss-quantum">—</div>
+              </div>
+              <div class="val-metric-item">
+                <div class="val-metric-label">Train / Val</div>
+                <div class="val-metric-value val-metric-split" id="val-split-quantum">—</div>
+              </div>
+            </div>
+
+          <!-- ─── Action row ─── -->
+          <div style="display:flex;align-items:center;gap:12px;margin-top:20px;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="saveArchConfig()">Save</button>
+            <button class="btn btn-warn"    onclick="saveAndRetrain()">Save + Retrain All</button>
+            <span id="arch-save-msg" style="font-size:12px"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Dataset Training ── -->
+      <div class="card mb-lg">
+        <div class="card-header">Model Training from Dataset</div>
+        <p class="sub-desc" style="padding:0 16px 12px">
+          Upload a labeled CSV file — CNN and RNN models will be retrained on real data.
+          <br><span style="color:var(--text2)">Required column: <code>label</code> (0=Normal, 1=Attack) &nbsp;|&nbsp; Other columns are used as features. Max 50,000 rows.</span>
+        </p>
+
+        <div style="padding:0 16px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+          <label class="btn btn-primary" style="cursor:pointer">
+            Upload CSV &amp; Train
+            <input type="file" accept=".csv,text/csv" id="train-file-input"
+                   style="display:none" onchange="trainFileSelected(this)"/>
+          </label>
+          <span id="train-file-name" style="color:var(--text2);font-size:13px">No file selected</span>
+        </div>
+
+        <!-- Training progress -->
+        <div id="train-progress-wrap" style="display:none;padding:0 16px 16px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+            <span id="train-prog-label" style="font-size:13px">Starting…</span>
+            <span id="train-prog-pct" style="font-size:12px;color:var(--text2)">0%</span>
+          </div>
+          <div class="batch-progress-bar-bg">
+            <div id="train-prog-bar" class="batch-progress-bar" style="width:0%"></div>
+          </div>
+        </div>
+
+        <!-- Training metrics -->
+        <div id="train-metrics" style="display:none;padding:0 16px 16px">
+
+          <!-- Badge row: format + mode + date -->
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center">
+            <span id="tm-badge-format"
+                  style="background:var(--accent);color:#fff;border-radius:12px;padding:3px 12px;font-size:12px;font-weight:600">—</span>
+            <span id="tm-badge-mode"
+                  style="background:var(--green,#22c55e);color:#fff;border-radius:12px;padding:3px 12px;font-size:12px;font-weight:600">—</span>
+            <span id="tm-badge-date"
+                  style="color:var(--text2);font-size:12px;margin-left:auto">—</span>
+          </div>
+
+          <!-- Main metric cards row 1 -->
+          <div class="report-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:10px">
+            <div class="rg-box"><div id="tm-samples"  class="rg-val">—</div><div class="rg-lbl">Samples</div></div>
+            <div class="rg-box"><div id="tm-features" class="rg-val">—</div><div class="rg-lbl">Features</div></div>
+            <div class="rg-box"><div id="tm-normal"   class="rg-val">—</div><div class="rg-lbl">Normal</div></div>
+            <div class="rg-box"><div id="tm-attack"   class="rg-val">—</div><div class="rg-lbl">Attack</div></div>
+          </div>
+
+          <!-- Accuracy cards row 2 -->
+          <div class="report-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:10px">
+            <div class="rg-box" style="background:rgba(99,102,241,.08)">
+              <div id="tm-acc"     class="rg-val" style="color:var(--accent)">—</div>
+              <div class="rg-lbl">CNN Accuracy</div>
+            </div>
+            <div class="rg-box" style="background:rgba(34,197,94,.08)">
+              <div id="tm-rnn-acc" class="rg-val" style="color:var(--green,#22c55e)">—</div>
+              <div class="rg-lbl">RNN Accuracy</div>
+            </div>
+          </div>
+
+          <!-- Label distribution -->
+          <div id="tm-label-dist" style="font-size:12px;color:var(--text2);padding:8px 12px;
+               background:var(--bg2);border-radius:8px;line-height:1.8;display:none">
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Quantum AI Metrics ── -->
+      <div class="card mb-lg" id="quantum-metrics-card">
+        <div class="card-header">Quantum AI Model Metrics</div>
+        <div id="quantum-metrics-body" style="padding:0 16px 16px">
+
+          <!-- Badge row -->
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center">
+            <span id="qm-badge-optimizer"
+                  style="background:var(--accent);color:#fff;border-radius:12px;padding:3px 12px;font-size:12px;font-weight:600">—</span>
+            <span id="qm-badge-status"
+                  style="background:var(--green,#22c55e);color:#fff;border-radius:12px;padding:3px 12px;font-size:12px;font-weight:600">—</span>
+            <span id="qm-badge-date"
+                  style="color:var(--text2);font-size:12px;margin-left:auto">—</span>
+          </div>
+
+          <!-- Stat cards row 1: architecture params -->
+          <div class="report-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:10px">
+            <div class="rg-box" style="background:rgba(99,102,241,.08)">
+              <div id="qm-qubits" class="rg-val" style="color:var(--accent)">—</div>
+              <div class="rg-lbl">Qubits</div>
+            </div>
+            <div class="rg-box" style="background:rgba(99,102,241,.08)">
+              <div id="qm-layers" class="rg-val" style="color:var(--accent)">—</div>
+              <div class="rg-lbl">Layers</div>
+            </div>
+            <div class="rg-box" style="background:rgba(99,102,241,.08)">
+              <div id="qm-params" class="rg-val" style="color:var(--accent)">—</div>
+              <div class="rg-lbl">Parameters</div>
+            </div>
+            <div class="rg-box" style="background:rgba(99,102,241,.08)">
+              <div id="qm-iters" class="rg-val" style="color:var(--accent)">—</div>
+              <div class="rg-lbl">SPSA Steps</div>
+            </div>
+          </div>
+
+          <!-- Accuracy cards row 2 -->
+          <div class="report-grid" id="qm-acc-row"
+               style="grid-template-columns:repeat(2,1fr);margin-bottom:10px;display:none">
+            <div class="rg-box" style="background:rgba(99,102,241,.12)">
+              <div id="qm-train-acc" class="rg-val" style="color:var(--accent)">—</div>
+              <div class="rg-lbl">QNN Train Accuracy</div>
+            </div>
+            <div class="rg-box" style="background:rgba(99,102,241,.12)" id="qm-dataset-acc-box">
+              <div id="qm-dataset-acc" class="rg-val" style="color:var(--accent)">—</div>
+              <div class="rg-lbl">QNN Dataset Accuracy</div>
+            </div>
+          </div>
+
+          <!-- Architecture note -->
+          <div style="font-size:12px;color:var(--text2);padding:8px 12px;
+               background:var(--bg2);border-radius:8px;line-height:1.8">
+            <strong style="color:var(--text1)">Architecture:</strong>
+            Dimension Reducer → QNN Circuit (Ry rotation gates) →
+            Quantum RNN Bridge → Binary Classification Output
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Checkpoint grid ── -->
+      <div class="model-grid" id="model-grid">
+        <p class="loading">Loading…</p>
+      </div>
+
+      <div class="card mt-lg">
+        <div class="card-header">System Architecture</div>
+        <div class="arch-diagram">
+          <div class="arch-row">
+            <div class="arch-box source">IPS</div>
+            <div class="arch-box source">SIEM</div>
+            <div class="arch-box source">Firewall</div>
+            <div class="arch-box source">SOAR</div>
+            <div class="arch-box source">IDS</div>
+          </div>
+          <div class="arch-arrow">↓ Raw Event</div>
+          <div class="arch-row">
+            <div class="arch-box pre">Preprocessing</div>
+          </div>
+          <div class="arch-arrow">↓ Features + Text</div>
+          <div class="arch-row">
+            <div class="arch-box emb">Embedding Engine</div>
+          </div>
+          <div class="arch-arrow">↓ Embedding Vectors</div>
+          <div class="arch-row">
+            <div class="arch-box agent">Quantum AI</div>
+            <div class="arch-box agent pytorch">CNN (PyTorch)</div>
+            <div class="arch-box agent pytorch">RNN (PyTorch)</div>
+            <div class="arch-box agent">Cosine Sim.</div>
+            <div class="arch-box agent">LLM Analysis</div>
+          </div>
+          <div class="arch-arrow">↓ 5-Agent Output</div>
+          <div class="arch-row">
+            <div class="arch-box fusion">Decision Fusion Layer</div>
+          </div>
+          <div class="arch-arrow">↓ Detection Decision</div>
+          <div class="arch-row">
+            <div class="arch-box detect">Intrusion Detection</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ────────── TAB: RESULTS ────────── -->
+    <section id="tab-results" class="tab">
+      <h2 class="section-title">Training Results</h2>
+
+      <!-- Best-per-model summary cards -->
+      <div class="card mb-lg">
+        <div class="card-header">Best Accuracy per Model</div>
+        <div id="results-best-grid" class="results-best-grid">
+          <div class="results-best-card results-best-empty"><div class="results-best-title">📊 CNN</div><div class="results-best-nodata">No records yet</div></div>
+          <div class="results-best-card results-best-empty"><div class="results-best-title">🔄 RNN</div><div class="results-best-nodata">No records yet</div></div>
+          <div class="results-best-card results-best-empty"><div class="results-best-title">⚛ Quantum</div><div class="results-best-nodata">No records yet</div></div>
+        </div>
+      </div>
+
+      <!-- All runs table -->
+      <div class="card">
+        <div class="card-header results-table-header">
+          <span>All Training Records</span>
+          <div class="results-header-right">
+            <div class="results-filter-row">
+              <button class="results-filter-btn active" onclick="filterResults('all')">All</button>
+              <button class="results-filter-btn" onclick="filterResults('manual')">Manual</button>
+              <button class="results-filter-btn" onclick="filterResults('tuning_trial')">Tuning Trial</button>
+              <button class="results-filter-btn" onclick="filterResults('tuning_final')">Tuning Final</button>
+            </div>
+            <div class="results-export-row">
+              <a class="results-export-btn" href="/api/training-history/export?format=csv" download>
+                ⬇ CSV
+              </a>
+              <a class="results-export-btn" href="/api/training-history/export?format=json" download>
+                ⬇ JSON
+              </a>
+              <button class="results-reset-btn" onclick="resetTrainingHistory()" title="Delete all records">
+                🗑 Reset
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="results-count" class="results-count"></div>
+        <div class="results-table-wrap">
+          <table class="results-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Time</th>
+                <th>Source</th>
+                <th>Model</th>
+                <th>Configuration / Label</th>
+                <th>Val Accuracy</th>
+                <th>Val Loss</th>
+                <th>Train / Val</th>
+                <th>Epochs</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="results-tbody"></tbody>
+          </table>
+        </div>
+        <div id="results-empty" class="results-empty" style="display:none">
+          No records yet. Train a model or start Tuning.
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ══════════════ FOOTER ══════════════ -->
+<footer class="footer">
+  Hybrid IDS — PyTorch CNN &amp; RNN &nbsp;|&nbsp; 5-Agent Fusion &nbsp;|&nbsp;
+  <span id="footer-clock"></span>
+</footer>
+
+<script src="/static/app.js?v={{ cache_bust }}"></script>
+</body>
+</html>

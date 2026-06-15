@@ -1,0 +1,14 @@
+{
+  "model_name": "classical_rnn",
+  "version": "2.1",
+  "backend": "pytorch",
+  "hidden_size": 64,
+  "num_layers": 1,
+  "input_dim": 128,
+  "epochs": 80,
+  "is_trained": true,
+  "training_mode": "embedding",
+  "n_features": 0,
+  "persistence_version": "1.0.0",
+  "saved_at": "2026-06-08T22:58:08.911514"
+}

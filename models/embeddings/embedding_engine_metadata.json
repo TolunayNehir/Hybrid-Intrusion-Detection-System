@@ -1,0 +1,9 @@
+{
+  "model_name": "embedding_engine",
+  "version": "1.0",
+  "vocabulary_size": 1604,
+  "dimension": 128,
+  "method": "word2vec",
+  "persistence_version": "1.0.0",
+  "saved_at": "2026-06-02T14:55:12.512997"
+}

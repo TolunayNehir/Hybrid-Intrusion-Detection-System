@@ -1,0 +1,17 @@
+{
+  "model_name": "data_lake",
+  "version": "1.0",
+  "total_embeddings": 1771,
+  "n_attacks": 1021,
+  "n_normal": 750,
+  "label_distribution": {
+    "BENIGN": 750,
+    "DDoS": 250,
+    "PortScan": 250,
+    "Web Attack \ufffd Brute Force": 250,
+    "Web Attack \ufffd Sql Injection": 21,
+    "Web Attack \ufffd XSS": 250
+  },
+  "persistence_version": "1.0.0",
+  "saved_at": "2026-06-08T22:45:53.697235"
+}

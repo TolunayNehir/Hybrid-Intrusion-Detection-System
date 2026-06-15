@@ -1,0 +1,11 @@
+{
+  "model_name": "cosine_similarity",
+  "version": "1.0",
+  "n_reference_vectors": 900,
+  "n_normal": 60,
+  "n_attack": 840,
+  "threshold": 0.7,
+  "top_k": 5,
+  "persistence_version": "1.0.0",
+  "saved_at": "2026-06-02T14:55:12.507103"
+}

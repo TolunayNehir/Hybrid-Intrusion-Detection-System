@@ -1,0 +1,16 @@
+{
+  "model_name": "quantum_ai",
+  "version": "5.0",
+  "n_qubits": 4,
+  "n_layers": 3,
+  "n_params": 29,
+  "optimizer": "Adam_SPSA",
+  "optimizer_iterations": 150,
+  "adam_t": 150,
+  "is_trained": true,
+  "train_accuracy": 100.0,
+  "dataset_accuracy": 0.0,
+  "input_feature_dim": 128,
+  "persistence_version": "1.0.0",
+  "saved_at": "2026-06-08T22:58:08.912228"
+}

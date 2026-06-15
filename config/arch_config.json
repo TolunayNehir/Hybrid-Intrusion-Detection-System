@@ -1,0 +1,26 @@
+{
+  "cnn": {
+    "epochs": 60,
+    "learning_rate": 0.001,
+    "n_conv_layers": 1,
+    "conv1_out": 8,
+    "conv2_out": 16,
+    "fc_hidden": 32,
+    "kernel_size": 3,
+    "dropout": 0
+  },
+  "rnn": {
+    "hidden_size": 64,
+    "num_layers": 1,
+    "dropout": 0,
+    "epochs": 80,
+    "learning_rate": 0.001
+  },
+  "quantum": {
+    "n_qubits": 4,
+    "n_hidden_layers": 3,
+    "max_iterations": 80,
+    "learning_rate": 0.05,
+    "perturbation": 0.01
+  }
+}
