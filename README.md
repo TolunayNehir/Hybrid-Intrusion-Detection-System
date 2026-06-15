@@ -1,6 +1,6 @@
 # Hybrid Intrusion Detection System
 
-A research-oriented Hybrid Intrusion Detection System (Hybrid IDS) that combines classical machine learning, quantum-inspired/quantum machine learning, semantic similarity analysis, rule-based or LLM-assisted analysis and decision-level fusion for network intrusion detection experiments.
+A research-oriented Hybrid Intrusion Detection System (Hybrid IDS) that combines classical machine learning, quantum machine learning, semantic similarity analysis, rule-based or LLM based analysis and decision-level fusion for network intrusion detection experiments.
 
 The project implements a multi-agent IDS pipeline inspired by an academic general system diagram. It ingests security events from multiple source types, preprocesses them, creates embeddings, evaluates them through several detection agents, fuses the outputs, generates alerts and supports analyst feedback and model updates.
 
