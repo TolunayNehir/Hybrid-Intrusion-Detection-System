@@ -2073,7 +2073,7 @@ def _run_autotuning():
             "progress": 99,
         })
         try:
-            _orchestrator._retrain_classifiers_on_embedding_space()
+            _orchestrator._retrain_classifiers_on_embedding_space(refresh_data_lake=False)
             from utils.model_persistence import (
                 save_classical_cnn as _sv_cnn,
                 save_classical_rnn as _sv_rnn,
@@ -2443,11 +2443,17 @@ def _val_metrics_classical(net, X_val, y_val, use_logits: bool):
 
 
 def _val_metrics_quantum(model, X_val, y_val):
-    """Compute val accuracy and BCE loss for QuantumAIModule."""
+    """Compute val accuracy and BCE loss for QuantumAIModule.
+
+    NOTE: X_val is raw 128-dim vectors; must be reduced via the model's
+    trained reducer before passing to the QNN (forward / predict expect
+    n_qubits-dim normalised vectors).
+    """
     import numpy as _np
-    preds = _np.array([model.qnn.predict(x)[0] for x in X_val])
+    X_val_red = model.reducer.transform(X_val)
+    preds = _np.array([model.qnn.predict(x)[0] for x in X_val_red])
     val_acc = float((preds == y_val).mean())
-    probs = _np.clip(_np.array([model.qnn.forward(x) for x in X_val]), 1e-7, 1 - 1e-7)
+    probs = _np.clip(model.qnn.forward_batch(X_val_red), 1e-7, 1 - 1e-7)
     val_loss = float(-_np.mean(
         y_val * _np.log(probs) + (1 - y_val) * _np.log(1 - probs)
     ))
@@ -2523,9 +2529,10 @@ def _train_single(model_key: str):
         # used at inference in /api/analyze).  The model was trained above on
         # data-lake biased vectors; without this step it cannot classify
         # quick-scenario events which are embedded with EmbeddingEngine.
+        # We pass refresh_data_lake=False so user-uploaded CSV data is preserved.
         status.update({"progress": 92, "message": "Realigning to word2vec embedding space…"})
         try:
-            _orchestrator._retrain_classifiers_on_embedding_space()
+            _orchestrator._retrain_classifiers_on_embedding_space(refresh_data_lake=False)
             from utils.model_persistence import (
                 save_classical_cnn as _sv_cnn2,
                 save_classical_rnn as _sv_rnn2,
