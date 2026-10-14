@@ -1,6 +1,6 @@
 """
 Hybrid Intrusion Detection System - Configuration Settings
-Based on: General System Diagram (Fig. 1)
+Based on: General System Diagram (Fig. 1) from the academic paper
 """
 
 import os
