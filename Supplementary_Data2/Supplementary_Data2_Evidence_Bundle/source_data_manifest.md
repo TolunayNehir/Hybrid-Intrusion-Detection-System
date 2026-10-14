@@ -76,7 +76,7 @@ as an executable regeneration path; `01_build_locked_split.py`, operating on the
 already-included without-target-binary CSV, is the actually-executable regeneration
 path for everything downstream of it.
 
-## Regeneration instructions
+## CICIDS2017 regeneration instructions
 
 1. Obtain the three named CICIDS2017 capture files from the Canadian Institute for
    Cybersecurity (link above), or use the two checksummed intermediate CSVs above if
@@ -86,3 +86,67 @@ path for everything downstream of it.
    `split_manifest.csv`, `split_summary.json`, and `locked_dataset.csv` from
    scratch, and to re-verify the zero-cross-partition-duplicate assertion.
 3. Proceed with `02_train_models.py` onward as described in `README.md`.
+
+
+## NSL-KDD replication source
+
+- Original dataset/provider information: https://www.unb.ca/cic/datasets/nsl.html
+- Required input: `KDDTrain+.txt` (the full training file with attack-type labels
+  and difficulty values; do not substitute the 20% subset or the test file).
+- Verified public mirror: https://raw.githubusercontent.com/defcom17/NSL_KDD/master/KDDTrain%2B.txt
+- Expected SHA-256: `1b86d2f957b33082081bba410fe129b475efebcc13c9014c3f447c8271aadf95`.
+- Place the file at `replication_data/KDDTrain+.txt` relative to the bundle root.
+
+On 14 October 2026, the original UNB landing page stated that the dataset was no
+longer available there. The mirror above was downloaded for verification and its
+SHA-256 matched the source hash already recorded in
+`results_replication/nslkdd/replication_results.json`. This supplies an access route
+to the same source bytes, not a replacement benchmark. The raw file is not included
+in this archive. Retain the original dataset and Tavallaee et al. (2009) attribution
+specified by the provider.
+
+`build_nslkdd()` in `11_replication.py` selects the source rows with NumPy
+`RandomState(42)` and quotas Normal 750, DoS 334, Probe 333, R2L 333, and U2R 21.
+The 38 numeric model features exclude `protocol_type`, `service`, `flag`, `label`,
+and `difficulty`. Family labels define the binary target. `locked_split()` applies
+the documented feature-fingerprint duplicate grouping and train/validation/test
+assignment; the archived partition sizes are 1314/228/229.
+
+## UNSW-NB15 replication source
+
+- Original provider and access page: https://research.unsw.edu.au/projects/unsw-nb15-dataset
+- Required input: `UNSW_NB15_training-set.csv` (the training-set CSV).
+- Expected SHA-256: `bec7dd5ec88dc2a0ccc7a07879d338395ed7421750f675fd0339e07dfe0648fa`.
+- Place the file at `replication_data/UNSW_NB15_training-set.csv` relative to the
+  bundle root.
+
+The expected hash comes from the existing archived source record in
+`results_replication/unsw/replication_results.json`. The provider landing page was
+checked during this revision; a fresh UNSW source download was not independently
+hashed. Check the downloaded file against the recorded hash before reconstruction.
+The raw file is not included in this archive. Consult the provider page for its
+dataset terms and attribution requirements.
+
+`build_unsw()` in `11_replication.py` selects rows with NumPy `RandomState(42)` and
+quotas Normal 750, Exploits 334, Fuzzers 333, Reconnaissance 333, and Worms 21.
+The 39 numeric features exclude `id`, `proto`, `service`, `state`, `attack_cat`,
+and `label`; `label` supplies the binary target. `locked_split()` yields the
+archived train/validation/test sizes 1334/216/221 after duplicate grouping.
+
+## Replication reconstruction and included artifacts
+
+After obtaining both files in a separate working copy of this bundle:
+
+```bash
+export HYBRID_IDS_REPO="$(pwd)/vendored_repo"
+python 11_replication.py
+```
+
+The script reconstructs the benchmark subsets and split assignments in memory and
+writes `results_replication/<dataset>/replication_results.json`. The supplied JSON
+files contain source hashes, sampling quotas, split summaries, per-seed metrics,
+aggregate metrics, and paired comparisons. The bundle does not contain separately
+saved NSL-KDD or UNSW-NB15 subset CSVs or per-event replication prediction files;
+these should not be confused with the included primary CICIDS2017 dataset and
+predictions under `results/`. The source-data hashes above are distinct from
+`SHA256SUMS.txt`, which covers the files actually shipped in this archive.
