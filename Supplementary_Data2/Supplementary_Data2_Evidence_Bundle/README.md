@@ -1,10 +1,10 @@
 # Supplementary Evidence Bundle
 
-This bundle accompanies the manuscript **“Auditing Quantum Contributions in a Hybrid Intrusion Detection System: A Leakage-Controlled Evaluation Across Three Benchmarks.”** It contains the scripts, immutable split files, predictions, model states, statistical outputs, circuit specifications, and checksums needed to inspect and reproduce the quantitative claims reported in the article.
+This bundle accompanies the manuscript **“Auditing Quantum Contributions in a Hybrid Intrusion Detection System: A Leakage-Safe Evaluation Across Three Benchmarks.”** It contains the scripts, immutable split files, predictions, model states, statistical outputs, circuit specifications, and checksums needed to inspect and reproduce the quantitative claims reported in the article.
 
 ## 1. Scope and provenance
 
-The raw CICIDS2017, NSL-KDD, and UNSW-NB15 source files are not redistributed. Their source locations, exact filenames, selection rules, and available checksums are documented in `source_data_manifest.md`. The bundle contains the derived locked datasets and all analysis outputs used in the manuscript.
+The raw CICIDS2017, NSL-KDD, and UNSW-NB15 source files are not redistributed. Their source locations, exact filenames, selection rules, and available checksums are documented in `source_data_manifest.md`. The bundle includes the derived locked CICIDS2017 dataset, its split manifest, primary per-seed predictions and model states, and the archived analysis outputs. For NSL-KDD and UNSW-NB15, it includes replication scripts and results; their raw source files must be obtained separately using the access instructions below.
 
 `vendored_repo/` is an anonymized snapshot of the exact reference-implementation modules imported by the primary scripts. Set `HYBRID_IDS_REPO` to this directory to avoid dependence on an external checkout.
 
@@ -39,6 +39,17 @@ python 07_paired_analysis.py         # paired tests and per-seed transparency
 Outputs are written below `results/`, including `split_manifest.csv`, `split_summary.json`, `locked_dataset.csv`, model checkpoints, per-seed predictions, metrics, fusion ablations, latency samples, and paired-test outputs.
 
 ## 4. Additional analyses reported in the manuscript
+
+Before running the replication or other analyses that use the additional benchmarks,
+create `replication_data/` in the bundle root and place the following files there:
+
+- `KDDTrain+.txt`: use the checksum-verified NSL-KDD mirror in `source_data_manifest.md`.
+- `UNSW_NB15_training-set.csv`: obtain the training-set CSV through the UNSW dataset page.
+
+The required SHA-256 values, sampling rules, and provenance are recorded in
+`source_data_manifest.md`. Obtain these external files before executing
+`11_replication.py` and the downstream analyses that load them. Run the workflow in
+a separate working copy to preserve the supplied results and integrity manifest.
 
 ```bash
 python 08_train_curves.py                # CNN/RNN train-validation curves
@@ -100,3 +111,17 @@ All entries should report `OK`. The manifest is regenerated only after the bundl
 - Classical-8D and cosine/k-NN are deterministic and are therefore evaluated once.
 - All quantum circuits are evaluated with exact statevector simulation. The shot-noise analysis samples finite measurement counts, but no physical-QPU or hardware-noise experiment is included.
 - The three benchmark corpora are scale-matched subsets rather than full temporal or cross-environment deployments.
+
+## 8. Availability revision (14 October 2026)
+
+This revision updates the manuscript title and documents source-data access for all
+three benchmarks, including a checksum-verified NSL-KDD mirror because the original
+UNB page no longer serves the dataset. The original `config/settings.py` was restored
+from the historically checksummed submission archive: only the introductory module
+docstring differed, and executable settings are unchanged. The SHA-256 manifest was
+regenerated after the documentation changes. Reported outputs, numerical results,
+model states, and analysis implementations are unchanged.
+
+The complete journal supplement is the supplied `Supplementary_Data2` archive.
+The supporting analysis data, scripts, and replication outputs are also hosted at:
+https://github.com/TolunayNehir/Hybrid-Intrusion-Detection-System/tree/main/Supplementary_Data2/Supplementary_Data2_Evidence_Bundle
