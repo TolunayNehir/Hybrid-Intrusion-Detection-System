@@ -1,0 +1,14 @@
+{
+  "mechanism_explanation": "S_fusion = mean(p_cnn, p_rnn, p_quantumai, p_cosine) is compared to a fixed threshold. Because this is a MEAN of continuous probabilities rather than a majority vote, a fixed equal-weight mean fusion has no mechanism to require agreement across agents, only average magnitude -- this is the structural reason a majority-Normal vote could in principle still cross threshold, which is the failure mode the qualitative Fig. S6 dashboard capture illustrated.",
+  "reproduction_on_locked_protocol": "Searching every BENIGN event in the locked D_test partition (n=116) for the exact Fig. S6 pattern (>=3/4 agents individually read Normal, i.e. p<0.5, yet the fused score exceeds the legacy tau=0.55) finds 0 such cases. This specific failure mode does not reproduce under the locked, leakage-safe protocol's retrained agents -- suggesting the originally displayed inconsistency was tied to the live text-embedding dashboard path and/or the earlier leakage-affected training, rather than being an unavoidable property of the fixed-weight mean-fusion formula itself.",
+  "n_benign_test_events": 116,
+  "n_majority_normal_but_fused_attack": 0,
+  "false_positive_rate_of_this_type_within_benign_test": 0.0,
+  "general_fpr_analysis": {
+    "fpr_at_legacy_fixed_threshold_0.55": 0.06896551724137931,
+    "n_false_positives_at_legacy_threshold": 8,
+    "fpr_at_D_val_tuned_threshold_mean_over_5_seeds": 0.06724137931034425,
+    "note": "The legacy tau=0.55 was never selected against D_val; it is simply the shipped default. The D_val-tuned threshold (Eq. 17 protocol) gives the FPR actually reported in the main Results table and is the honest operating point."
+  },
+  "example_cases": []
+}
